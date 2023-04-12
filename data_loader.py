@@ -27,6 +27,7 @@ import random
 
 dataset = load_dataset("wikipedia", "20220301.simple")
 dataset_fr = load_dataset("wikipedia", "20220301.fr")
+dataset_ar = load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
 
 training_percent = 0.8
 validation_percent = 0.1
@@ -55,6 +56,18 @@ test_data_fr = dataset['train'][: int(test_index_fr)]
 validation_data_fr = dataset['train'][int(test_index_fr):int(valid_index_fr)]
 # validation index to end
 test_data_fr = dataset['train'][int(valid_index_fr):]
+
+# arabic
+ds_ar_len = len(dataset['train'])
+test_index_ar = ds_ar_len * training_percent
+valid_index_ar = ds_ar_len * (training_percent + validation_percent)
+
+# start to test index
+test_data_ar = dataset['train'][: int(test_index_ar)]
+# test index to validation index
+validation_data_ar = dataset['train'][int(test_index_ar):int(valid_index_ar)]
+# validation index to end
+test_data_ar = dataset['train'][int(valid_index_ar):]
 
 def batch_loader(dataset, batch_size, shuffle=True):
   text = dataset['train']['text']
