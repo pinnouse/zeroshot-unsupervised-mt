@@ -11,6 +11,7 @@ Original file is located at
 PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
+from models import Decoder, Transformer, Translator, Discriminator
 
 print(tokenizer.vocab_size)
 real_decoder = Decoder(tokenizer.vocab_size)
@@ -39,6 +40,18 @@ def pad(tokens, context_length):
   for _ in range(context_length - len(tokens)):
     l.append(tokenizer.pad_token_id)
   return np.array(l)
+
+def train_decoder(real_decoder):
+  pass
+
+def train_transformer(transformer):
+  pass
+
+def train_discriminator(discriminator, real_emb, fake_emb):
+  pass
+
+def train_translator(translator):
+  pass
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
           real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
