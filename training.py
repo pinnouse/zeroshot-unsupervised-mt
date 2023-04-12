@@ -132,11 +132,48 @@ def train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch
   g_optim.step()
   return other_embeddings, g_epoch_loss
 
+def train_discriminator(discriminator, other_embeddings, real_train, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
+  criterion_binary = nn.BCEWithLogitsLoss()
+  d_optim = Adafactor(discriminator.parameters())
+  d_losses = []
 
-def train_discriminator(discriminator, real_emb, fake_emb):
-  pass
+  r_iterations = len(real_train) // batch_size
+  o_iterations = len(other_train) // batch_size
+  # r_iterations = real_train.shape[0] // batch_size
+  # o_iterations = other_train.shape[0] // batch_size
 
-def train_translator(translator):
+  n = min(r_iterations, o_iterations)
+  for e in range(epochs):
+    d_epoch_loss = 0
+    for i, (r_x, o_x) in enumerate(data_loader):
+      if (i + 1) % 100 == 0:
+        print(f'Iteration {i+1} of {n}')
+      _, _, _, d_epoch_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings)
+    
+    d_losses.append(d_epoch_loss)
+
+
+def train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings):
+  rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
+  n_r = len(r_x)
+  n_o = len(o_x)
+  fake_embs, F_embs = translate(other_embeddings[:,-1,:])
+  real_embs = rx_clips[:,-1,:]
+  inputs = torch.cat([real_embs, fake_embs])
+  reals = torch.ones(n_r, device=device) #whatever batch_sizes will be
+  fakes = torch.zeros(n_o, device=device) # ^^
+  labels = torch.cat([reals,fakes]) #[n_1 + n_2,512]
+
+  d_outputs = discriminator(inputs) 
+  d_loss = criterion_binary(d_outputs, labels)
+  d_epoch_loss += d_loss.item()
+  d_optim.zero_grad()
+  d_loss.backward(retain_graph=True)
+  d_optim.step()
+  return fake_embs,F_embs,fakes,d_epoch_loss
+
+
+def train_translator(translator, data_loader, epochs=10, batch_size=256):
   pass
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
@@ -206,19 +243,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn discriminator
       # ==============================
-      fake_embs, F_embs = translate(other_embeddings[:,-1,:])
-      real_embs = rx_clips[:,-1,:]
-      inputs = torch.cat([real_embs, fake_embs])
-      reals = torch.ones(n_r, device=device) #whatever batch_sizes will be
-      fakes = torch.zeros(n_o, device=device) # ^^
-      labels = torch.cat([reals,fakes]) #[n_1 + n_2,512]
-
-      d_outputs = discriminator(inputs) 
-      d_loss = criterion_binary(d_outputs, labels)
-      d_epoch_loss += d_loss.item()
-      d_optim.zero_grad()
-      d_loss.backward(retain_graph=True)
-      d_optim.step()
+      fake_embs, F_embs, fakes, d_epoch_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings)
 
       # ==============================
       # == learn translator
