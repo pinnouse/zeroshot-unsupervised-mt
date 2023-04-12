@@ -94,6 +94,7 @@ def train_transformer(transformer, other_train, data_loader, device='cpu', epoch
   g_losses = []
 
   for e in range(epochs):
+    g_epoch_loss = 0
     for i, (_, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
