@@ -9,16 +9,16 @@ Original file is located at
 Packages
 """
 
-!pip install apache_beam mwparserfromhell
-!pip install transformers
-!pip install datasets
-!pip install ftfy regex tqdm
-!pip install git+https://github.com/openai/CLIP.git
+#!pip install apache_beam mwparserfromhell
+#!pip install transformers
+#!pip install datasets
+#!pip install ftfy regex tqdm
+#!pip install git+https://github.com/openai/CLIP.git
 
 # multilingual CLIP pretrained
 # https://github.com/FreddeFrallan/Multilingual-CLIP
-!pip install multilingual-clip
-!pip install -U sentence-transformers
+#!pip install multilingual-clip
+#!pip install -U sentence-transformers
 
 """Data Batching"""
 
