@@ -57,21 +57,21 @@ def train_decoder(real_decoder, real_train, data_loader, device='cpu', epochs=10
     for i, (r_x, _) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-
-      r_epoch_loss = train_decoder_iteration(real_decoder, device, criterion, r_optim, r_epoch_loss, r_x)
+      
+      rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
+      rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
+      
+      r_epoch_loss = train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim, r_epoch_loss, r_x)
     
     r_losses.append(r_epoch_loss)
   
   # Show loss graph
   plot_loss('Decoder Loss', r_losses)
 
-def train_decoder_iteration(real_decoder, device, criterion, r_optim, r_epoch_loss, r_x):
+def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim, r_epoch_loss):
   '''
   Perform one iteration of training a decoder and return the updated loss for the current epoch.
   '''
-  rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
-  rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
-
   tgt_in = rx_toks[:, :-1]
   tgt_expect = rx_toks[:, 1:]
   r_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
@@ -98,17 +98,18 @@ def train_transformer(transformer, other_train, data_loader, device='cpu', epoch
     for i, (_, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-
-      _, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, o_x)
+      
+      ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
+      _, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, ox_toks)
     g_losses.append(g_epoch_loss)
   
   plot_loss('Transformer Loss', g_losses)
 
-def train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, o_x):
+def train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, ox_toks):
   '''
   Perform one iteration of training a transformer and return both the resulting embeddings and updated current epoch loss.
+  Based on: https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
   '''
-  ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
   src = ox_toks
   tgt = src
   tgt_in = tgt[:,:-1]
@@ -186,18 +187,21 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
         print(f'Iteration {i+1} of {n}')
       
       rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
-
+      rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
+      ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
+      
       # ==============================
       # == learn decoder
       # ==============================
-      r_epoch_loss = train_decoder_iteration(real_decoder, criterion, r_optim, r_epoch_loss, r_x)
+      
+      r_epoch_loss = train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim, r_epoch_loss)
 
       # ==============================
       # == self learn monolingual
       # ==============================
       # "other" generator self supervised
       # https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
-      other_embeddings, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, o_x)
+      other_embeddings, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, ox_toks)
 
       # ==============================
       # == learn discriminator
