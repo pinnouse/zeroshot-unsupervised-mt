@@ -41,8 +41,10 @@ def pad(tokens, context_length):
     l.append(tokenizer.pad_token_id)
   return np.array(l)
 
-def train_decoder(real_decoder):
-  pass
+def plot_loss(title, losses):
+  plt.title(title)
+  plt.plot(losses)
+  plt.show()
 
 def train_transformer(transformer):
   pass
