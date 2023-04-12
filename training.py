@@ -46,8 +46,90 @@ def plot_loss(title, losses):
   plt.plot(losses)
   plt.show()
 
-def train_transformer(transformer):
-  pass
+def train_decoder(real_decoder, real_train, data_loader, device='cpu', epochs=10, batch_size=256):
+  criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
+  r_optim = Adafactor(real_decoder.parameters())
+  n = len(real_train) // batch_size
+  r_losses = []
+
+  for e in range(epochs):
+    r_epoch_loss = 0
+    for i, (r_x, _) in enumerate(data_loader):
+      if (i + 1) % 100 == 0:
+        print(f'Iteration {i+1} of {n}')
+
+      r_epoch_loss = train_decoder_iteration(real_decoder, device, criterion, r_optim, r_epoch_loss, r_x)
+    
+    r_losses.append(r_epoch_loss)
+  
+  # Show loss graph
+  plot_loss('Decoder Loss', r_losses)
+
+def train_decoder_iteration(real_decoder, device, criterion, r_optim, r_epoch_loss, r_x):
+  '''
+  Perform one iteration of training a decoder and return the updated loss for the current epoch.
+  '''
+  rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
+  rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
+
+  tgt_in = rx_toks[:, :-1]
+  tgt_expect = rx_toks[:, 1:]
+  r_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
+  r_output = real_decoder(rx_clips, tgt_in, tgt_mask=r_mask)
+  r_output = r_output.permute(0,2,1)
+  r_loss = criterion(r_output, tgt_expect)
+  r_epoch_loss += r_loss.item()
+
+  r_optim.zero_grad()
+  r_loss.backward(retain_graph=True)
+  r_optim.step()
+
+  return r_epoch_loss
+
+
+def train_transformer(transformer, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
+  criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
+  g_optim = Adafactor(real_decoder.parameters())
+  n = len(other_train) // batch_size
+  g_losses = []
+
+  for e in range(epochs):
+    for i, (_, o_x) in enumerate(data_loader):
+      if (i + 1) % 100 == 0:
+        print(f'Iteration {i+1} of {n}')
+
+      _, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, o_x)
+    g_losses.append(g_epoch_loss)
+  
+  plot_loss('Transformer Loss', g_losses)
+
+def train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, o_x):
+  '''
+  Perform one iteration of training a transformer and return both the resulting embeddings and updated current epoch loss.
+  '''
+  ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
+  src = ox_toks
+  tgt = src
+  tgt_in = tgt[:,:-1]
+  tgt_expect = tgt[:,1:]
+  t_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
+  # https://pytorch.org/tutorials/beginner/translation_transformer.html#seq2seq-network-using-transformer
+  tgt_attn_mask = (tgt_in == tokenizer.pad_token_id)
+  attn_mask = (src == tokenizer.pad_token_id)
+
+  output, other_embeddings = transformer(src, tgt_in, tgt_mask=t_mask, tp_mask=tgt_attn_mask, sp_mask=attn_mask) # [bs,seq,vocab]
+
+  # get preds shape to conform to tgt_expect
+  output = output.permute(0,2,1)  # now [bs, vocab, seq]
+
+  g_loss = criterion(output, tgt_expect)
+  g_epoch_loss += g_loss.item()
+
+  g_optim.zero_grad()
+  g_loss.backward(retain_graph=True)
+  g_optim.step()
+  return other_embeddings, g_epoch_loss
+
 
 def train_discriminator(discriminator, real_emb, fake_emb):
   pass
@@ -101,55 +183,20 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       #   break
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-
-      n_r = len(r_x)
-      n_o = len(o_x)
-
+      
       rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
-      rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
-      ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
 
       # ==============================
       # == learn decoder
       # ==============================
-      tgt_in = rx_toks[:, :-1]
-      tgt_expect = rx_toks[:, 1:]
-      r_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
-      r_output = real_decoder(rx_clips, tgt_in, tgt_mask=r_mask)
-      r_output = r_output.permute(0,2,1)
-      r_loss = criterion(r_output, tgt_expect)
-      r_epoch_loss += r_loss.item()
-
-      r_optim.zero_grad()
-      r_loss.backward(retain_graph=True)
-      r_optim.step()
+      r_epoch_loss = train_decoder_iteration(real_decoder, criterion, r_optim, r_epoch_loss, r_x)
 
       # ==============================
       # == self learn monolingual
       # ==============================
       # "other" generator self supervised
       # https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
-      
-      src = ox_toks
-      tgt = src
-      tgt_in = tgt[:,:-1]
-      tgt_expect = tgt[:,1:]
-      t_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
-      # https://pytorch.org/tutorials/beginner/translation_transformer.html#seq2seq-network-using-transformer
-      tgt_attn_mask = (tgt_in == tokenizer.pad_token_id)
-      attn_mask = (src == tokenizer.pad_token_id)
-
-      output, other_embeddings = transformer(src, tgt_in, tgt_mask=t_mask, tp_mask=tgt_attn_mask, sp_mask=attn_mask) # [bs,seq,vocab]
-
-      # get preds shape to conform to tgt_expect
-      output = output.permute(0,2,1)  # now [bs, vocab, seq]
-
-      g_loss = criterion(output, tgt_expect)
-      g_epoch_loss += g_loss.item()
-
-      g_optim.zero_grad()
-      g_loss.backward(retain_graph=True)
-      g_optim.step()
+      other_embeddings, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, o_x)
 
       # ==============================
       # == learn discriminator
