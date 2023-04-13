@@ -62,16 +62,16 @@ def train_decoder(real_decoder, real_train, data_loader, device='cpu', epochs=10
       rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
       rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
       
-      r_epoch_loss = train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim, r_epoch_loss, r_x)
+      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
     
     r_losses.append(r_epoch_loss)
   
   # Show loss graph
   plot_loss('Decoder Loss', r_losses)
 
-def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim, r_epoch_loss):
+def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim):
   '''
-  Perform one iteration of training a decoder and return the updated loss for the current epoch.
+  Perform one iteration of training a decoder and return the loss of the decoder.
   '''
   tgt_in = rx_toks[:, :-1]
   tgt_expect = rx_toks[:, 1:]
@@ -79,13 +79,12 @@ def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, 
   r_output = real_decoder(rx_clips, tgt_in, tgt_mask=r_mask)
   r_output = r_output.permute(0,2,1)
   r_loss = criterion(r_output, tgt_expect)
-  r_epoch_loss += r_loss.item()
 
   r_optim.zero_grad()
   r_loss.backward(retain_graph=True)
   r_optim.step()
 
-  return r_epoch_loss
+  return r_loss.item()
 
 
 def train_transformer(transformer, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
@@ -101,14 +100,15 @@ def train_transformer(transformer, other_train, data_loader, device='cpu', epoch
         print(f'Iteration {i+1} of {n}')
       
       ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
-      _, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, ox_toks)
+      _, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks)
+      g_epoch_loss += g_loss
     g_losses.append(g_epoch_loss)
   
   plot_loss('Transformer Loss', g_losses)
 
-def train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, ox_toks):
+def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks):
   '''
-  Perform one iteration of training a transformer and return both the resulting embeddings and updated current epoch loss.
+  Perform one iteration of training a transformer and return both the resulting embeddings and the loss of the transformer.
   Based on: https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
   '''
   src = ox_toks
@@ -126,12 +126,11 @@ def train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch
   output = output.permute(0,2,1)  # now [bs, vocab, seq]
 
   g_loss = criterion(output, tgt_expect)
-  g_epoch_loss += g_loss.item()
 
   g_optim.zero_grad()
   g_loss.backward(retain_graph=True)
   g_optim.step()
-  return other_embeddings, g_epoch_loss
+  return other_embeddings, g_loss.item()
 
 def train_discriminator(discriminator, other_embeddings, real_train, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
   criterion_binary = nn.BCEWithLogitsLoss()
@@ -149,14 +148,15 @@ def train_discriminator(discriminator, other_embeddings, real_train, other_train
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      _, _, _, d_epoch_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings)
+      _, _, _, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, r_x, o_x, other_embeddings)
+      d_epoch_loss += d_loss
     
     d_losses.append(d_epoch_loss)
   
   plot_loss('Discriminator Loss', d_losses)
 
 
-def train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings):
+def train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, r_x, o_x, other_embeddings):
   rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
   n_r = len(r_x)
   n_o = len(o_x)
@@ -169,11 +169,10 @@ def train_discriminator_iteration(discriminator, translate, device, criterion_bi
 
   d_outputs = discriminator(inputs) 
   d_loss = criterion_binary(d_outputs, labels)
-  d_epoch_loss += d_loss.item()
   d_optim.zero_grad()
   d_loss.backward(retain_graph=True)
   d_optim.step()
-  return fake_embs,F_embs,fakes,d_epoch_loss
+  return fake_embs,F_embs,fakes,d_loss.item()
 
 
 def train_translator(translator, data_loader, other_embeddings, fake_embs, F_embs, fakes, epochs=10, batch_size=256):
@@ -192,22 +191,21 @@ def train_translator(translator, data_loader, other_embeddings, fake_embs, F_emb
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      t_epoch_loss = train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, t_epoch_loss, other_embeddings, fake_embs, F_embs, fakes)
+      t_epoch_loss += train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
     t_losses.append(t_epoch_loss)
   
   plot_loss('Translator Loss', t_losses)
 
-def train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, t_epoch_loss, other_embeddings, fake_embs, F_embs, fakes):
+def train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes):
   t_outputs = discriminator(fake_embs)
   t_loss = criterion_binary(t_outputs, fakes)
   tl_loss = mse(F_embs, other_embeddings[:,-1,:]) # "cycle GAN" reconstruct fr embeddings
-  t_epoch_loss += t_loss.item()
   t_optim.zero_grad()
   t_loss.backward(retain_graph=True)
   tl_loss.backward()
   t_optim.step()
 
-  return t_epoch_loss
+  return t_loss.item()
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
           real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
@@ -267,24 +265,26 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # == learn decoder
       # ==============================
       
-      r_epoch_loss = train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim, r_epoch_loss)
+      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
       # == self learn monolingual
       # ==============================
       # "other" generator self supervised
       # https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
-      other_embeddings, g_epoch_loss = train_transformer_iteration(transformer, device, criterion, g_optim, g_epoch_loss, ox_toks)
+      other_embeddings, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks)
+      g_epoch_loss += g_loss
 
       # ==============================
       # == learn discriminator
       # ==============================
-      fake_embs, F_embs, fakes, d_epoch_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings)
+      fake_embs, F_embs, fakes, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, r_x, o_x, other_embeddings)
+      d_epoch_loss += d_loss
 
       # ==============================
       # == learn translator
       # ==============================
-      t_epoch_loss = train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, t_epoch_loss, other_embeddings, fake_embs, F_embs, fakes)
+      t_epoch_loss += train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
 
 
     print(f'\ttrain loss (decoder)   : {r_epoch_loss}')
