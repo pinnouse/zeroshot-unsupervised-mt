@@ -12,6 +12,7 @@ PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
 from models import Decoder, Transformer, Translator, Discriminator
+from typing import List
 
 print(tokenizer.vocab_size)
 real_decoder = Decoder(tokenizer.vocab_size)
@@ -41,7 +42,7 @@ def pad(tokens, context_length):
     l.append(tokenizer.pad_token_id)
   return np.array(l)
 
-def plot_loss(title, losses):
+def plot_loss(title: str, losses: List[float]) -> None:
   plt.title(title)
   plt.plot(losses)
   plt.show()
@@ -151,6 +152,8 @@ def train_discriminator(discriminator, other_embeddings, real_train, other_train
       _, _, _, d_epoch_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings)
     
     d_losses.append(d_epoch_loss)
+  
+  plot_loss('Discriminator Loss', d_losses)
 
 
 def train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, d_epoch_loss, r_x, o_x, other_embeddings):
