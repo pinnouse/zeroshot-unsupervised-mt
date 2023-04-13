@@ -235,7 +235,10 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
 
   n = min(r_iterations, o_iterations)
 
-  losses = []
+  r_losses = []
+  g_losses = []
+  t_losses = []
+  d_losses = []
 
   for e in range(epochs):
     r_epoch_loss = 0
@@ -289,7 +292,10 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     print(f'\ttrain loss (discrim)   : {d_epoch_loss}')
     print(f'\ttrain loss (translator): {t_epoch_loss}')
     print(f'\ttook: {(datetime.now() - epoch_start).total_seconds()} seconds')
-    losses.append(t_epoch_loss)
+    r_losses.append(r_epoch_loss)
+    g_losses.append(g_epoch_loss)
+    d_losses.append(d_epoch_loss)
+    t_losses.append(t_epoch_loss)
     if ckpt_path is not None and e % ckpt_interval == 0:
       state = {
           'real_decoder_state': real_decoder.state_dict(),
@@ -302,9 +308,11 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
           'translate_loss': t_epoch_loss,
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
-  # plt.xticks(np.arange(epochs))
-  plt.plot(losses)
-  plt.show()
+  plot_loss('Decoder Loss', r_losses)
+  plot_loss('Transformer Loss', g_losses)
+  plot_loss('Discriminator Loss', d_losses)
+  plot_loss('Translator Loss', t_losses)
+  
 
 print(train_data_fr[0])
 # To disable checkpointing, comment the next two lines and remove the ckpt_path
