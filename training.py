@@ -315,7 +315,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
   plot_loss('Translator Loss', t_losses)
   
 
-print(train_data_fr[0])
+# print(train_data_fr[0])
 # To disable checkpointing, comment the next two lines and remove the ckpt_path
 # parameter in the call to train().
 drive.mount('/content/gdrive')
