@@ -12,7 +12,7 @@ PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
 from models import Decoder, Transformer, Translator, Discriminator
-from data_loader import tokenizer, device
+from data_loader import tokenizer, device, train_data_en, train_data_fr
 from typing import List
 
 print(tokenizer.vocab_size)
@@ -315,7 +315,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
   plot_loss('Translator Loss', t_losses)
   
 
-# print(train_data_fr[0])
+print(train_data_fr[0])
 # To disable checkpointing, comment the next two lines and remove the ckpt_path
 # parameter in the call to train().
 drive.mount('/content/gdrive')
