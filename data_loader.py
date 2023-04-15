@@ -126,7 +126,7 @@ for (i, t) in enumerate(text_long):
     for s in range(len(tokenized)):
       sentences.append(tokenizer.decode(tokenized[1:s], skip_special_tokens=True))
     #[bs x 64 x 512]
-    clips = text_model.encode(sentences).detach()
+    clips = text_model.encode(sentences)
     train_data_en.append((t,clips,tokenized))
 
 """Tokenize/Embbed French data"""
