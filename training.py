@@ -12,6 +12,7 @@ PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
 from models import Decoder, Transformer, Translator, Discriminator
+from data_loader import tokenizer
 from typing import List
 
 print(tokenizer.vocab_size)
