@@ -24,6 +24,8 @@ Packages
 
 from datasets import load_dataset
 import random
+from transformers import BertTokenizer
+tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
 
 dataset = load_dataset("wikipedia", "20220301.simple")
 dataset_fr = load_dataset("wikipedia", "20220301.fr")
