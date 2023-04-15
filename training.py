@@ -14,6 +14,9 @@ PyTorch training for GAN:
 from models import Decoder, Transformer, Translator, Discriminator
 from data_loader import tokenizer, device, train_data_en, train_data_fr
 from typing import List
+from torch import nn
+import torch
+import numpy as np
 
 print(tokenizer.vocab_size)
 real_decoder = Decoder(tokenizer.vocab_size)
