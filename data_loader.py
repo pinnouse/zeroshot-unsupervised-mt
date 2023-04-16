@@ -253,9 +253,9 @@ def data_loader(language):
 
   return (train_data, val_data, test_data)
 
-en_data = data_loader("en")
+# en_data = data_loader("en")
 # print(en_data)
-print(en_data[0]['sentences'][:5])
+# print(en_data[0]['sentences'][:5])
 
 # en = load_dataset('wikipedia', '20220301.simple')
 # nice = dataset_splitter(en)
