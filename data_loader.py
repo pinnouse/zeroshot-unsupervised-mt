@@ -168,10 +168,13 @@ def data_loader(language):
 
     temp_data = []
     for sentence in curr_split["text"]:
-      tokenized = tokenizer(t, padding='max_length', max_length=64, return_tensors='pt')
+      tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt', truncation=True)
 
       if len(tokenized) <= 64:
-        sentences = [tokenizer.decode(tokenized[:i], skip_special_tokens=True) for i in range(1, len(tokenized)+1)]
+        sentences = []
+        for i in range(len(tokenized)):
+            sentence = tokenizer.decode(tokenized[:i+1], skip_special_tokens=True)
+            sentences.append(sentence)
         clips = text_model.encode(sentences)
 
         temp_data.append((sentence, clips, tokenized))
