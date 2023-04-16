@@ -195,12 +195,12 @@ def train_translator(translator, data_loader, other_embeddings, fake_embs, F_emb
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      t_epoch_loss += train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
+      t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
     t_losses.append(t_epoch_loss)
   
   plot_loss('Translator Loss', t_losses)
 
-def train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes):
+def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes):
   t_outputs = discriminator(fake_embs)
   t_loss = criterion_binary(t_outputs, fakes)
   tl_loss = mse(F_embs, other_embeddings[:,-1,:]) # "cycle GAN" reconstruct fr embeddings
@@ -288,7 +288,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn translator
       # ==============================
-      t_epoch_loss += train_trainslator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
+      t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
 
 
     print(f'\ttrain loss (decoder)   : {r_epoch_loss}')
