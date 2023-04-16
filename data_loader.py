@@ -25,7 +25,7 @@ Packages
 from datasets import load_dataset
 import random
 from transformers import BertTokenizer
-tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+# tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
 
 # dataset = load_dataset("wikipedia", "20220301.simple")
 # dataset_fr = load_dataset("wikipedia", "20220301.fr")
@@ -112,8 +112,8 @@ from sentence_transformers import SentenceTransformer, util
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # model, preprocess = clip.load("ViT-B/32", device=device)
 
-text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1',
-                                 device=device)
+# text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1',
+#                                  device=device)
 
 context_length = 64
 #glove = torchtext.vocab.GloVe(name="6B", dim=50)
