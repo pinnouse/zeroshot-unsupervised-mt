@@ -168,10 +168,10 @@ def dataset_splitter(dataset):
   return [test_data, validation_data, test_data]
   
 def dataset_splitter(dataset):
-  training_percent = 0.4
-  validation_percent = 0.05
-  testing_percent = 0.05
-  total_percent = 0.5
+  training_percent = 0.8
+  validation_percent = 0.1
+  testing_percent = 0.1
+  total_percent = 1
 
   # creating index
   ds_len = len(dataset['train'])
