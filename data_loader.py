@@ -33,45 +33,45 @@ dataset_ar = load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
 dataset_lux = load_dataset("wikipedia", "20220301.frr")
 dataset_jp = load_dataset("AhmedSSabir/Japanese-wiki-dump-sentence-dataset")
 
-training_percent = 0.8
-validation_percent = 0.1
-testing_percent = 0.1
+# training_percent = 0.8
+# validation_percent = 0.1
+# testing_percent = 0.1
 
-# english
-ds_en_len = len(dataset)
-test_index_en = ds_en_len * training_percent
-valid_index_en = ds_en_len * (training_percent + validation_percent)
+# # english
+# ds_en_len = len(dataset)
+# test_index_en = ds_en_len * training_percent
+# valid_index_en = ds_en_len * (training_percent + validation_percent)
 
-# start to test index
-test_data_en = dataset['train'][: int(test_index_en)]
-# test index to validation index
-validation_data_en = dataset['train'][int(test_index_en):int(valid_index_en)]
-# validation index to end
-test_data_en = dataset['train'][int(valid_index_en):]
+# # start to test index
+# test_data_en = dataset['train'][: int(test_index_en)]
+# # test index to validation index
+# validation_data_en = dataset['train'][int(test_index_en):int(valid_index_en)]
+# # validation index to end
+# test_data_en = dataset['train'][int(valid_index_en):]
 
-# french
-ds_fr_len = len(dataset_fr)
-test_index_fr = ds_fr_len * training_percent
-valid_index_fr = ds_fr_len * (training_percent + validation_percent)
+# # french
+# ds_fr_len = len(dataset_fr)
+# test_index_fr = ds_fr_len * training_percent
+# valid_index_fr = ds_fr_len * (training_percent + validation_percent)
 
-# start to test index
-test_data_fr = dataset['train'][: int(test_index_fr)]
-# test index to validation index
-validation_data_fr = dataset['train'][int(test_index_fr):int(valid_index_fr)]
-# validation index to end
-test_data_fr = dataset['train'][int(valid_index_fr):]
+# # start to test index
+# test_data_fr = dataset['train'][: int(test_index_fr)]
+# # test index to validation index
+# validation_data_fr = dataset['train'][int(test_index_fr):int(valid_index_fr)]
+# # validation index to end
+# test_data_fr = dataset['train'][int(valid_index_fr):]
 
-# arabic
-ds_ar_len = len(dataset['train'])
-test_index_ar = ds_ar_len * training_percent
-valid_index_ar = ds_ar_len * (training_percent + validation_percent)
+# # arabic
+# ds_ar_len = len(dataset['train'])
+# test_index_ar = ds_ar_len * training_percent
+# valid_index_ar = ds_ar_len * (training_percent + validation_percent)
 
-# start to test index
-test_data_ar = dataset['train'][: int(test_index_ar)]
-# test index to validation index
-validation_data_ar = dataset['train'][int(test_index_ar):int(valid_index_ar)]
-# validation index to end
-test_data_ar = dataset['train'][int(valid_index_ar):]
+# # start to test index
+# test_data_ar = dataset['train'][: int(test_index_ar)]
+# # test index to validation index
+# validation_data_ar = dataset['train'][int(test_index_ar):int(valid_index_ar)]
+# # validation index to end
+# test_data_ar = dataset['train'][int(valid_index_ar):]
 
 def batch_loader(dataset, batch_size, shuffle=True):
   text = dataset['train']['text']
@@ -145,6 +145,25 @@ for (i, t) in enumerate(text_fr):
   # tokenized = tokenized.to(device)
   train_data_fr.append((sentence, tokenized))
 
+def dataset_splitter(dataset):
+  training_percent = 0.8
+  validation_percent = 0.1
+  testing_percent = 0.1
+
+  # creating index
+  ds_len = len(dataset)
+  test_index = ds_len * training_percent
+  valid_index = ds_len * (training_percent + validation_percent)
+
+  # start to test index
+  test_data = dataset['train'][: int(test_index)]
+  # test index to validation index
+  validation_data = dataset['train'][int(test_index):int(valid_index)]
+  # validation index to end
+  test_data = dataset['train'][int(valid_index):]
+
+  return [test_data, validation_data, test_data]
+  
 def data_loader(language):
   if language == 'en':
       dataset = load_dataset('wikipedia', '20220301.simple')
@@ -163,12 +182,16 @@ def data_loader(language):
 
   tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
 
+  # Split train dataset into train, validation, and test datasets
+  split_datasets = dataset_splitter(dataset)
+
   train_data = {'sentences': [], 'clips': [], 'tokens': []}
   val_data = {'sentences': [], 'clips': [], 'tokens': []}
   test_data = {'sentences': [], 'clips': [], 'tokens': []}
 
-  for split_type in ["train", "validation", "test"]:
-    curr_split = dataset[split_type]
+  split_types = ["train", "validation", "test"]
+  for split_type in enumerate(split_types):
+    curr_split = split_datasets[split_type[0]]
 
     temp_data = []
     for sentence in curr_split["text"]:
@@ -181,15 +204,15 @@ def data_loader(language):
         #[bs x 64 x 512]
         clips = text_model.encode(sentences)
     
-        if split_type == "train":
+        if split_type[1] == "train":
             train_data['sentences'].append(sentences)
             train_data['clips'].append(clips)
             train_data['tokens'].append(tokenized)
-        elif split_type == "validation":
+        elif split_type[1] == "validation":
             val_data['sentences'].append(sentences)
             val_data['clips'].append(clips)
             val_data['tokens'].append(tokenized)
-        else:
+        elif split_type[1] == "test":
             test_data['sentences'].append(sentences)
             test_data['clips'].append(clips)
             test_data['tokens'].append(tokenized)
