@@ -30,6 +30,8 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
 dataset = load_dataset("wikipedia", "20220301.simple")
 dataset_fr = load_dataset("wikipedia", "20220301.fr")
 dataset_ar = load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
+dataset_lux = load_dataset("wikipedia", "20220301.frr")
+dataset_jp = load_dataset("AhmedSSabir/Japanese-wiki-dump-sentence-dataset")
 
 training_percent = 0.8
 validation_percent = 0.1
@@ -142,3 +144,46 @@ for (i, t) in enumerate(text_fr):
   tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt')['input_ids'][0]
   # tokenized = tokenized.to(device)
   train_data_fr.append((sentence, tokenized))
+
+def data_loader(language):
+  if language == 'en':
+      dataset = load_dataset('wikipedia', '20220301.simple')
+  elif language == 'fr':
+      dataset = load_dataset('wikipedia', '20220301.fr')
+  elif language == 'frr':
+      dataset = load_dataset('wikipedia', '20220301.frr')
+  elif language == 'jp':
+      dataset = load_dataset('AhmedSSabir/Japanese-wiki-dump-sentence-dataset')
+
+  # load clip model
+  device = "cuda" if torch.cuda.is_available() else "cpu"
+  text_model = SentenceTransformer('sentence-transformers/clip-ViT-B-32-multilingual-v1', device=device)
+
+  tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
+
+  train_data, val_data, test_data = [], [], []
+
+  for split_type in ["train", "validation", "test"]:
+    curr_split = dataset[split_type]
+
+    temp_data = []
+    for sentence in curr_split["text"]:
+      tokenized = tokenizer(t, padding='max_length', max_length=64, return_tensors='pt')
+
+      if len(tokenized) <= 64:
+        sentences = [tokenizer.decode(tokenized[:i], skip_special_tokens=True) for i in range(1, len(tokenized)+1)]
+        clips = text_model.encode(sentences)
+
+        temp_data.append((sentence, clips, tokenized))
+    
+      if curr_split == "train":
+          train_data = curr_split
+      elif curr_split == "validation":
+          val_data = curr_split
+      else:
+          test_data = curr_split
+
+  return (train_data, val_data, test_data)
+
+en_data = data_loader("en")
+print(en_data)
