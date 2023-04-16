@@ -89,16 +89,16 @@ def batch_loader(dataset, batch_size, shuffle=True):
   
   return data_batch
 
-text = map(lambda x: x['text'].replace("\n", ' ').split(". "), dataset['train'])
-text_long = []
-for t in text:
-  for s in t:
-    text_long.append(s) 
+# text = map(lambda x: x['text'].replace("\n", ' ').split(". "), dataset['train'])
+# text_long = []
+# for t in text:
+#   for s in t:
+#     text_long.append(s) 
 
-text_fr = map(lambda x: x['text'].replace("\n", ' ').split(". "), dataset_fr['train'])
-for t in text_fr:
-  print(t)
-  break
+# text_fr = map(lambda x: x['text'].replace("\n", ' ').split(". "), dataset_fr['train'])
+# for t in text_fr:
+#   print(t)
+#   break
 
 import torch
 import torchtext
