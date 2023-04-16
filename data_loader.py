@@ -168,23 +168,23 @@ def dataset_splitter(dataset):
   return [test_data, validation_data, test_data]
   
 def dataset_splitter(dataset):
-  training_percent = 0.8
-  validation_percent = 0.1
-  testing_percent = 0.1
+  training_percent = 0.24
+  validation_percent = 0.03
+  testing_percent = 0.03
 
   # creating index
   ds_len = len(dataset)
   test_index = ds_len * training_percent
   valid_index = ds_len * (training_percent + validation_percent)
 
-  # start to train index
+  # start to test index
   train_data = dataset['train'][: int(test_index)]
   # test index to validation index
   validation_data = dataset['train'][int(test_index):int(valid_index)]
   # validation index to end
   test_data = dataset['train'][int(valid_index):]
 
-  return [test_data, validation_data, test_data]
+  return [train_data, validation_data, test_data]
   
 def data_loader(language):
   if language == 'en':
@@ -192,11 +192,13 @@ def data_loader(language):
   elif language == 'fr':
       dataset = load_dataset('wikipedia', '20220301.fr')
   elif language == 'ar':
-      load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
+      dataset = load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
   elif language == 'frr':
       dataset = load_dataset('wikipedia', '20220301.frr')
   elif language == 'jp':
       dataset = load_dataset('AhmedSSabir/Japanese-wiki-dump-sentence-dataset')
+  else:
+    print("Error")
 
   # load clip model
   device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -214,6 +216,10 @@ def data_loader(language):
   split_types = ["train", "validation", "test"]
   for split_type in enumerate(split_types):
     curr_split = split_datasets[split_type[0]]
+
+    # print(curr_split)
+    print(split_type[0])
+    print(split_type[1])
 
     temp_data = []
     for sentence in curr_split["text"]:
@@ -241,15 +247,19 @@ def data_loader(language):
 
   return (train_data, val_data, test_data)
 
-en_data = data_loader("en")
-print(en_data)
+# en_data = data_loader("en")
+# print(en_data)
 # ds = load_dataset('wikipedia', '20220301.simple')
 # print(ds)
-# print(ds['train'])
-# print(ds['train']['text'])
+# ds_ar = load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
+# print(ds_ar)
+ar_data = data_loader("ar")
+# print(ar_data)
+print(ar_data[0])
+print(ar_data[0]['sentences'])
 
-split_types = ["train", "validation", "test"]
-for split_type in enumerate(split_types):
-  print(split_type)
-  print(split_type[0])
-  print(split_type[1])
+# split_types = ["train", "validation", "test"]
+# for split_type in enumerate(split_types):
+#   print(split_type)
+#   print(split_type[0])
+#   print(split_type[1])
