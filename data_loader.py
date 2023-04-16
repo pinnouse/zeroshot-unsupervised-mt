@@ -177,8 +177,8 @@ def dataset_splitter(dataset):
   test_index = ds_len * training_percent
   valid_index = ds_len * (training_percent + validation_percent)
 
-  # start to test index
-  test_data = dataset['train'][: int(test_index)]
+  # start to train index
+  train_data = dataset['train'][: int(test_index)]
   # test index to validation index
   validation_data = dataset['train'][int(test_index):int(valid_index)]
   # validation index to end
