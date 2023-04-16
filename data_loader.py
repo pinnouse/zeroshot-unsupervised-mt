@@ -150,6 +150,8 @@ def data_loader(language):
       dataset = load_dataset('wikipedia', '20220301.simple')
   elif language == 'fr':
       dataset = load_dataset('wikipedia', '20220301.fr')
+  elif language == 'ar':
+      load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
   elif language == 'frr':
       dataset = load_dataset('wikipedia', '20220301.frr')
   elif language == 'jp':
@@ -161,30 +163,36 @@ def data_loader(language):
 
   tokenizer = BertTokenizer.from_pretrained('bert-base-multilingual-cased')
 
-  train_data, val_data, test_data = [], [], []
+  train_data = {'sentences': [], 'clips': [], 'tokens': []}
+  val_data = {'sentences': [], 'clips': [], 'tokens': []}
+  test_data = {'sentences': [], 'clips': [], 'tokens': []}
 
   for split_type in ["train", "validation", "test"]:
     curr_split = dataset[split_type]
 
     temp_data = []
     for sentence in curr_split["text"]:
-      tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt', truncation=True)
+      tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt', truncation=True)['input_ids']
 
       if len(tokenized) <= 64:
         sentences = []
-        for i in range(len(tokenized)):
-            sentence = tokenizer.decode(tokenized[:i+1], skip_special_tokens=True)
-            sentences.append(sentence)
+        for s in range(len(tokenized)):
+          sentences.append(tokenizer.decode(tokenized[1:s], skip_special_tokens=True))
+        #[bs x 64 x 512]
         clips = text_model.encode(sentences)
-
-        temp_data.append((sentence, clips, tokenized))
     
-      if curr_split == "train":
-          train_data = curr_split
-      elif curr_split == "validation":
-          val_data = curr_split
-      else:
-          test_data = curr_split
+        if split_type == "train":
+            train_data['sentences'].append(sentences)
+            train_data['clips'].append(clips)
+            train_data['tokens'].append(tokenized)
+        elif split_type == "validation":
+            val_data['sentences'].append(sentences)
+            val_data['clips'].append(clips)
+            val_data['tokens'].append(tokenized)
+        else:
+            test_data['sentences'].append(sentences)
+            test_data['clips'].append(clips)
+            test_data['tokens'].append(tokenized)
 
   return (train_data, val_data, test_data)
 
