@@ -168,23 +168,26 @@ def dataset_splitter(dataset):
   return [test_data, validation_data, test_data]
   
 def dataset_splitter(dataset):
-  training_percent = 0.5
+  training_percent = 0.8
   validation_percent = 0.1
   testing_percent = 0.1
+  total_percent = 1
 
   # creating index
   ds_len = len(dataset['train'])
   train_index = ds_len * training_percent
   valid_index = ds_len * (training_percent + validation_percent)
+  total_index = ds_len * total_percent
 
   # start to test index
   train_data = dataset['train'][: int(train_index)]
   # test index to validation index
   validation_data = dataset['train'][int(train_index):int(valid_index)]
   # validation index to end
-  test_data = dataset['train'][int(valid_index):]
+  test_data = dataset['train'][int(valid_index):int(total_index)]
 
   return [train_data, validation_data, test_data]
+  
   
 def data_loader(language):
   if language == 'en':
@@ -277,3 +280,31 @@ print(en_data[0]['sentences'][:5])
 #   print(split_type)
 #   print(split_type[0])
 #   print(split_type[1])
+
+def batch_loader(dataset, batch_size=32, shuffle=True):
+  sentences = dataset['sentences']
+  clips = dataset['clips']
+  tokens = dataset['tokens']
+
+  if shuffle:
+    combined = [(sentences[i], clips[i], tokens[i]) for i in range(len(sentences))]
+    random.shuffle(combined)
+    sentences, clips, tokens = [], [], []
+    for item in combined:
+        sentences.append(item[0])
+        clips.append(item[1])
+        tokens.append(item[2])
+
+  num_batches = (len(sentences) + batch_size - 1) // batch_size
+  batch = []
+  for i in range(num_batches):
+    batch_start = i * batch_size
+    batch_end = min(batch_start + batch_size, len(sentences))
+
+    sentence_batch = sentences[batch_start:batch_end]
+    clips_batch = clips[batch_start:batch_end]
+    tokens_batch = tokens[batch_start:batch_end]
+
+    batch.append((sentence_batch, clips_batch, tokens_batch))
+
+  return batch
