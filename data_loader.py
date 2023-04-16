@@ -168,19 +168,19 @@ def dataset_splitter(dataset):
   return [test_data, validation_data, test_data]
   
 def dataset_splitter(dataset):
-  training_percent = 0.24
-  validation_percent = 0.03
-  testing_percent = 0.03
+  training_percent = 0.5
+  validation_percent = 0.1
+  testing_percent = 0.1
 
   # creating index
-  ds_len = len(dataset)
-  test_index = ds_len * training_percent
+  ds_len = len(dataset['train'])
+  train_index = ds_len * training_percent
   valid_index = ds_len * (training_percent + validation_percent)
 
   # start to test index
-  train_data = dataset['train'][: int(test_index)]
+  train_data = dataset['train'][: int(train_index)]
   # test index to validation index
-  validation_data = dataset['train'][int(test_index):int(valid_index)]
+  validation_data = dataset['train'][int(train_index):int(valid_index)]
   # validation index to end
   test_data = dataset['train'][int(valid_index):]
 
@@ -213,16 +213,17 @@ def data_loader(language):
   val_data = {'sentences': [], 'clips': [], 'tokens': []}
   test_data = {'sentences': [], 'clips': [], 'tokens': []}
 
+  # counter = 0
   split_types = ["train", "validation", "test"]
   for split_type in enumerate(split_types):
     curr_split = split_datasets[split_type[0]]
 
-    # print(curr_split)
-    print(split_type[0])
-    print(split_type[1])
-
     temp_data = []
     for sentence in curr_split["text"]:
+      # if counter == 100:
+      #   break
+      # counter += 1
+
       tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt', truncation=True)['input_ids']
 
       if len(tokenized) <= 64:
@@ -233,30 +234,43 @@ def data_loader(language):
         clips = text_model.encode(sentences)
     
         if split_type[1] == "train":
-            train_data['sentences'].append(sentences)
-            train_data['clips'].append(clips)
-            train_data['tokens'].append(tokenized)
+          train_data['sentences'].append(sentence)
+          train_data['clips'].append(clips)
+          train_data['tokens'].append(tokenized)
         elif split_type[1] == "validation":
-            val_data['sentences'].append(sentences)
-            val_data['clips'].append(clips)
-            val_data['tokens'].append(tokenized)
+          # print("valid")
+          val_data['sentences'].append(sentence)
+          val_data['clips'].append(clips)
+          val_data['tokens'].append(tokenized)
         elif split_type[1] == "test":
-            test_data['sentences'].append(sentences)
-            test_data['clips'].append(clips)
-            test_data['tokens'].append(tokenized)
+          # print("test")
+          test_data['sentences'].append(sentence)
+          test_data['clips'].append(clips)
+          test_data['tokens'].append(tokenized)
 
   return (train_data, val_data, test_data)
 
-# en_data = data_loader("en")
+en_data = data_loader("en")
 # print(en_data)
+print(en_data[0]['sentences'][:5])
+
+# en = load_dataset('wikipedia', '20220301.simple')
+# nice = dataset_splitter(en)
+# print(nice[0]['text'][:5])
+
 # ds = load_dataset('wikipedia', '20220301.simple')
-# print(ds)
 # ds_ar = load_dataset('SaiedAlshahrani/Moroccan_Arabic_Wikipedia_20230101')
-# print(ds_ar)
-ar_data = data_loader("ar")
+# rice = dataset_splitter(ds_ar)
+# print(rice[0]['text'][:5])
+
+# ar_data = data_loader("ar")
 # print(ar_data)
-print(ar_data[0])
-print(ar_data[0]['sentences'])
+# print(ar_data[0])
+# print(ar_data[0]['sentences'][:5])
+
+# lux_data = data_loader("frr")
+# print(lux_data[0]['clips'][:5])
+
 
 # split_types = ["train", "validation", "test"]
 # for split_type in enumerate(split_types):
