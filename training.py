@@ -176,7 +176,7 @@ def train_discriminator_iteration(discriminator, translate, device, criterion_bi
   d_optim.zero_grad()
   d_loss.backward(retain_graph=True)
   d_optim.step()
-  return fake_embs,F_embs,fakes,d_loss.item()
+  return fake_embs,F_embs,fakes,d_outputs,d_loss.item()
 
 
 def train_translator(translator, data_loader, other_embeddings, fake_embs, F_embs, fakes, epochs=10, batch_size=256):
@@ -287,7 +287,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn discriminator
       # ==============================
-      fake_embs, F_embs, fakes, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
+      fake_embs, F_embs, fakes, d_outputs d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
       d_epoch_loss += d_loss
 
       # ==============================
@@ -305,6 +305,14 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     g_losses.append(g_epoch_loss)
     d_losses.append(d_epoch_loss)
     t_losses.append(t_epoch_loss)
+    
+    #Report scores for discriminator
+    scores = torch.sigmoid(d_outputs)
+    real_score = scores[:batch_size].data.mean()
+    print('Probability Discriminator classifies English Embs: ', real_score)
+    fake_score =  scores[-(batch_size):].data.mean()
+    print('Probability Discriminator classifies Other Embs as English Embs: ', fake_score)
+    
     if ckpt_path is not None and e % ckpt_interval == 0:
       state = {
           'real_decoder_state': real_decoder.state_dict(),
