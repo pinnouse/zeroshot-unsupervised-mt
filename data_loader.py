@@ -218,9 +218,9 @@ def data_loader(language):
   val_data = {'sentences': [], 'clips': [], 'tokens': []}
   test_data = {'sentences': [], 'clips': [], 'tokens': []}
 
-  # counter = 0
   split_types = ["train", "validation", "test"]
   for split_type in enumerate(split_types):
+    counter = 0
     curr_split = split_datasets[split_type[0]]
 
     temp_data = []
@@ -261,6 +261,10 @@ def data_loader(language):
             if language == 'en':
               test_data['clips'].append(clips)
             test_data['tokens'].append(tokenized)
+          
+          counter += 1
+          if counter >= 7000:
+            break
 
   return (train_data, val_data, test_data)
 
