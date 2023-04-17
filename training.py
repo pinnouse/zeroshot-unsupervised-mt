@@ -103,13 +103,13 @@ def train_transformer(transformer, other_train, data_loader, tokenizer, device='
         print(f'Iteration {i+1} of {n}')
       
       ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
-      _, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks)
+      _, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer)
       g_epoch_loss += g_loss
     g_losses.append(g_epoch_loss)
   
   plot_loss('Transformer Loss', g_losses)
 
-def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks):
+def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer):
   '''
   Perform one iteration of training a transformer and return both the resulting embeddings and the loss of the transformer.
   Based on: https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
@@ -272,7 +272,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # == learn decoder
       # ==============================
       # Don't train decoder if we are loading a checkpoint
-      if checkpoint is not None:
+      if checkpoint is None:
         r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
@@ -280,7 +280,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # "other" generator self supervised
       # https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
-      other_embeddings, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks)
+      other_embeddings, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer)
       g_epoch_loss += g_loss
 
       # ==============================
@@ -317,7 +317,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
   
-  if checkpoint is not None:
+  if checkpoint is None:
     plot_loss('Decoder Loss', r_losses)
   
   plot_loss('Transformer Loss', g_losses)
