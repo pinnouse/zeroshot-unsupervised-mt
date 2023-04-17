@@ -287,7 +287,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn discriminator
       # ==============================
-      fake_embs, F_embs, fakes, d_outputs d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
+      fake_embs, F_embs, fakes, d_outputs, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
       d_epoch_loss += d_loss
 
       # ==============================
