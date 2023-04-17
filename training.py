@@ -324,46 +324,46 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
   plot_loss('Translator Loss', t_losses)
   
 
-print(train_data_fr[0])
-# To disable checkpointing, comment the next two lines and remove the ckpt_path
-# parameter in the call to train().
-drive.mount('/content/gdrive')
-ckpt_path = '/content/gdrive/My Drive/CSC413/Project/'
-train(real_decoder, transformer, discriminator, translate, [train_data_en[0]] * 2, [train_data_fr[0]] * 16, epochs=100, device=device, ckpt_path=ckpt_path)
-# train(real_decoder, transformer, discriminator, translate, train_data_en, train_data_fr, epochs=100, ckpt_path=ckpt_path)
+# print(train_data_fr[0])
+# # To disable checkpointing, comment the next two lines and remove the ckpt_path
+# # parameter in the call to train().
+# drive.mount('/content/gdrive')
+# ckpt_path = '/content/gdrive/My Drive/CSC413/Project/'
+# train(real_decoder, transformer, discriminator, translate, [train_data_en[0]] * 2, [train_data_fr[0]] * 16, epochs=100, device=device, ckpt_path=ckpt_path)
+# # train(real_decoder, transformer, discriminator, translate, train_data_en, train_data_fr, epochs=100, ckpt_path=ckpt_path)
 
-"""### Overfit Inference"""
+# """### Overfit Inference"""
 
-from google.colab import drive
-drive.mount('/content/gdrive')
-ckpt_path = '/content/gdrive/My Drive/CSC413/Project/ckpt-epoch-90.pt'
-checkpoint = torch.load(ckpt_path)
+# from google.colab import drive
+# drive.mount('/content/gdrive')
+# ckpt_path = '/content/gdrive/My Drive/CSC413/Project/ckpt-epoch-90.pt'
+# checkpoint = torch.load(ckpt_path)
 
-real_decoder.load_state_dict(checkpoint['real_decoder_state'])
-transformer.load_state_dict(checkpoint['transformer_state'])
-translate.load_state_dict(checkpoint['translate_state'])
-# discriminator.load_state_dict(checkpoint['discriminator'])
+# real_decoder.load_state_dict(checkpoint['real_decoder_state'])
+# transformer.load_state_dict(checkpoint['transformer_state'])
+# translate.load_state_dict(checkpoint['translate_state'])
+# # discriminator.load_state_dict(checkpoint['discriminator'])
 
-real_decoder.eval()
-transformer.eval()
-translate.eval()
+# real_decoder.eval()
+# transformer.eval()
+# translate.eval()
 
-x = train_data_fr[0]
-print(f'input: {x}')
-xx = torch.tensor(np.array([x[1].numpy()]))
-sp = (xx == tokenizer.pad_token_id)
-embs = transformer.encode(xx, sp_mask=sp)
-en_embs, _ = translate(embs[:,-1:])
+# x = train_data_fr[0]
+# print(f'input: {x}')
+# xx = torch.tensor(np.array([x[1].numpy()]))
+# sp = (xx == tokenizer.pad_token_id)
+# embs = transformer.encode(xx, sp_mask=sp)
+# en_embs, _ = translate(embs[:,-1:])
 
-print('='*26)
-s = [tokenizer.cls_token_id]
-for i in range(30):
-  seq = torch.tensor(np.array([s]))
-  t_mask = nn.Transformer.generate_square_subsequent_mask(i + 1)
-  o = real_decoder(en_embs[:,-1:], seq, t_mask)
-  m = torch.argmax(o, dim=2)
-  tk = m[0, -1]
-  s.append(tk)
-  print(tokenizer.decode(s))
-  if tk == tokenizer.eos_token_id:
-    break
+# print('='*26)
+# s = [tokenizer.cls_token_id]
+# for i in range(30):
+#   seq = torch.tensor(np.array([s]))
+#   t_mask = nn.Transformer.generate_square_subsequent_mask(i + 1)
+#   o = real_decoder(en_embs[:,-1:], seq, t_mask)
+#   m = torch.argmax(o, dim=2)
+#   tk = m[0, -1]
+#   s.append(tk)
+#   print(tokenizer.decode(s))
+#   if tk == tokenizer.eos_token_id:
+#     break
