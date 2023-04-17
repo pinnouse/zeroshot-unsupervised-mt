@@ -224,39 +224,42 @@ def data_loader(language):
     curr_split = split_datasets[split_type[0]]
 
     temp_data = []
-    for sentence in curr_split["text"]:
+    for page in curr_split["text"]:
       # if counter == 100:
       #   break
       # counter += 1
+      clean_page = page.replace('\n', ' ')
+      page_sentences = clean_page.split('。' if language == 'jp' else '. ')
+      for sentence in page_sentences:
 
-      tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt', truncation=True)['input_ids']
+        tokenized = tokenizer(sentence, padding='max_length', max_length=64, return_tensors='pt', truncation=True)['input_ids']
 
-      if len(tokenized) <= 64:
-        clips = []
-        if language == 'en':
-            sentences = []
-            for s in range(len(tokenized)):
-              sentences.append(tokenizer.decode(tokenized[1:s], skip_special_tokens=True))
-            #[bs x 64 x 512]
-            clips = text_model.encode(sentences)
-    
-        if split_type[1] == "train":
-          train_data['sentences'].append(sentence)
+        if len(tokenized) <= 64:
+          clips = []
           if language == 'en':
-            train_data['clips'].append(clips)
-          train_data['tokens'].append(tokenized)
-        elif split_type[1] == "validation":
-          # print("valid")
-          val_data['sentences'].append(sentence)
-          if language == 'en':
-            val_data['clips'].append(clips)
-          val_data['tokens'].append(tokenized)
-        elif split_type[1] == "test":
-          # print("test")
-          test_data['sentences'].append(sentence)
-          if language == 'en':
-            test_data['clips'].append(clips)
-          test_data['tokens'].append(tokenized)
+              sentences = []
+              for s in range(len(tokenized)):
+                sentences.append(tokenizer.decode(tokenized[1:s], skip_special_tokens=True))
+              #[bs x 64 x 512]
+              clips = text_model.encode(sentences)
+      
+          if split_type[1] == "train":
+            train_data['sentences'].append(sentence)
+            if language == 'en':
+              train_data['clips'].append(clips)
+            train_data['tokens'].append(tokenized)
+          elif split_type[1] == "validation":
+            # print("valid")
+            val_data['sentences'].append(sentence)
+            if language == 'en':
+              val_data['clips'].append(clips)
+            val_data['tokens'].append(tokenized)
+          elif split_type[1] == "test":
+            # print("test")
+            test_data['sentences'].append(sentence)
+            if language == 'en':
+              test_data['clips'].append(clips)
+            test_data['tokens'].append(tokenized)
 
   return (train_data, val_data, test_data)
 

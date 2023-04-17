@@ -263,9 +263,9 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
       
-      rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
-      rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
-      ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
+      rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
+      rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+      ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
       
       # ==============================
       # == learn decoder
