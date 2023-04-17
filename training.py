@@ -18,16 +18,16 @@ from torch import nn
 import torch
 import numpy as np
 
-print(tokenizer.vocab_size)
-real_decoder = Decoder(tokenizer.vocab_size)
-transformer = Transformer(tokenizer.vocab_size) # temp vocab size
-translate = Translator(hidden=512)
-discriminator = Discriminator()
+# print(tokenizer.vocab_size)
+# real_decoder = Decoder(tokenizer.vocab_size)
+# transformer = Transformer(tokenizer.vocab_size) # temp vocab size
+# translate = Translator(hidden=512)
+# discriminator = Discriminator()
 
-real_decoder.to(device)
-transformer.to(device)
-translate.to(device)
-discriminator.to(device)
+# real_decoder.to(device)
+# transformer.to(device)
+# translate.to(device)
+# discriminator.to(device)
 
 from torch import optim
 # https://huggingface.co/docs/transformers/main_classes/optimizer_schedules#transformers.Adafactor
