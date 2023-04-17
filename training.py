@@ -50,7 +50,7 @@ def plot_loss(title: str, losses: List[float]) -> None:
   plt.plot(losses)
   plt.show()
 
-def train_decoder(real_decoder, real_train, data_loader, device='cpu', epochs=10, batch_size=256):
+def train_decoder(real_decoder, real_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   r_optim = Adafactor(real_decoder.parameters())
   n = len(real_train) // batch_size
@@ -90,7 +90,7 @@ def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, 
   return r_loss.item()
 
 
-def train_transformer(transformer, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
+def train_transformer(transformer, other_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   g_optim = Adafactor(real_decoder.parameters())
   n = len(other_train) // batch_size
@@ -211,7 +211,7 @@ def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, ot
   return t_loss.item()
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
-          real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
+          tokenizer, real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
           epochs = 10, batch_size = 256, checkpoint = None, ckpt_path = None, ckpt_interval = 10):
   batch_data = []
 
