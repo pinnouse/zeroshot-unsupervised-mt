@@ -213,7 +213,7 @@ def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, ot
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
           real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
-          epochs = 10, batch_size = 256, ckpt_path = None, ckpt_interval = 10):
+          epochs = 10, batch_size = 256, checkpoint = None, ckpt_path = None, ckpt_interval = 10):
   batch_data = []
 
   # yash
@@ -242,6 +242,9 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
   t_losses = []
   d_losses = []
 
+  if checkpoint is not None:
+    real_decoder.load_state_dict(checkpoint['real_decoder_state'])
+
   for e in range(epochs):
     r_epoch_loss = 0
     g_epoch_loss = 0
@@ -268,8 +271,9 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn decoder
       # ==============================
-      
-      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
+      # Don't train decoder if we are loading a checkpoint
+      if checkpoint is not None:
+        r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
       # == self learn monolingual
@@ -312,7 +316,10 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
           'translate_loss': t_epoch_loss,
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
-  plot_loss('Decoder Loss', r_losses)
+  
+  if checkpoint is not None:
+    plot_loss('Decoder Loss', r_losses)
+  
   plot_loss('Transformer Loss', g_losses)
   plot_loss('Discriminator Loss', d_losses)
   plot_loss('Translator Loss', t_losses)
