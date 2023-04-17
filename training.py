@@ -271,7 +271,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # == learn decoder
       # ==============================
       # Don't train decoder if we are loading a checkpoint
-      if checkpoint is not None:
+      if checkpoint is None:
         r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
@@ -316,7 +316,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
   
-  if checkpoint is not None:
+  if checkpoint is None:
     plot_loss('Decoder Loss', r_losses)
   
   plot_loss('Transformer Loss', g_losses)
