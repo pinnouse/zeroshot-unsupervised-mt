@@ -12,7 +12,6 @@ PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
 from models import Decoder, Transformer, Translator, Discriminator
-from data_loader import tokenizer, device, train_data_en, train_data_fr
 from typing import List
 from torch import nn
 import torch
