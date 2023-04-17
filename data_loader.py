@@ -228,6 +228,8 @@ def data_loader(language):
       # if counter == 100:
       #   break
       # counter += 1
+      if counter >= 7000:
+        break
       clean_page = page.replace('\n', ' ')
       page_sentences = clean_page.split('。' if language == 'jp' else '. ')
       tks = tokenizer(page_sentences, padding='max_length', max_length=64, return_tensors='pt', truncation=True)['input_ids']
@@ -263,8 +265,6 @@ def data_loader(language):
             test_data['tokens'].append(tokenized)
           
           counter += 1
-          if counter >= 7000:
-            break
 
   return (train_data, val_data, test_data)
 
