@@ -213,10 +213,9 @@ def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, ot
 def train(real_decoder, transformer, discriminator, translate, # our four models
           tokenizer, real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
           epochs = 10, batch_size = 256, checkpoint = None, ckpt_path = None, ckpt_interval = 10):
-  batch_data = []
-
-  # yash
-  data_loader = [(real_train, other_train)]
+  full_rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
+  full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+  full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
 
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   criterion_binary = nn.BCEWithLogitsLoss()
@@ -229,8 +228,8 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
   t_optim = Adafactor(translate.parameters())
   d_optim = Adafactor(discriminator.parameters())
 
-  r_iterations = len(real_train) // batch_size
-  o_iterations = len(other_train) // batch_size
+  r_iterations = len(full_rx_toks) // batch_size
+  o_iterations = len(full_ox_toks) // batch_size
   # r_iterations = real_train.shape[0] // batch_size
   # o_iterations = other_train.shape[0] // batch_size
 
@@ -255,17 +254,19 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     # random.shuffle(batches of the dataloader)
     epoch_start = datetime.now()
     print(f'Epoch {e+1}:')
-    for i, (r_x, o_x) in enumerate(data_loader):
+    r_indices = np.random.permutation(len(full_rx_toks))
+    o_indices = np.random.permutation(len(full_ox_toks))
+    for i in range(n):
       # r_x: (english sentence: str, CLIP embeddings: float[512], tokens: one-hots[num tokens])[batch_size]
       # o_x: (fr sentence: str, tokens: one-hot[num tokens])[batch_size]
       # if r_x.shape[0] < batch_size: # not full batch
       #   break
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      
-      rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
-      rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
-      ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
+
+      rx_clips = full_rx_clips[r_indices[i*batch_size:(i+1)*batch_size]]
+      rx_toks = full_rx_toks[r_indices[i*batch_size:(i+1)*batch_size]]
+      ox_toks = full_rx_toks[o_indices[i*batch_size:(i+1)*batch_size]]
       
       # ==============================
       # == learn decoder
