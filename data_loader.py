@@ -232,7 +232,7 @@ def data_loader(language):
       page_sentences = clean_page.split('。' if language == 'jp' else '. ')
       tks = tokenizer(page_sentences, padding='max_length', max_length=64, return_tensors='pt', truncation=True)['input_ids']
       for i in range(len(page_sentences)):
-        sentence = sentences[i]
+        sentence = page_sentences[i]
         tokenized = tks[i]
 
         if len(tokenized) <= 64:
