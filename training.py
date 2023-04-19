@@ -106,26 +106,38 @@ def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, 
   return loss.item()
 
 
-def train_transformer(transformer, other_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
+def train_transformer(transformer, other_train, data_loader, tokenizer,
+                      device='cpu', epochs=10, batch_size=256,
+                      checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-  g_optim = Adafactor(real_decoder.parameters())
-  n = len(other_train) // batch_size
-  g_losses = []
+  optim = Adafactor(transformer.parameters())
+  full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
+  
+  n = len(full_ox_toks) // batch_size
 
-  for e in range(epochs):
-    g_epoch_loss = 0
+  if checkpoint is not None:
+    transformer.load_state_dict(checkpoint['state'])
+  
+  losses = checkpoint['losses'] if checkpoint else []
+
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (_, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
       
       ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
-      _, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer)
-      g_epoch_loss += g_loss
-    g_losses.append(g_epoch_loss)
-  
-  plot_loss('Transformer Loss', g_losses)
+      _, loss = train_transformer_iteration(transformer, device, criterion, optim, ox_toks, tokenizer)
+      epoch_loss += loss
+    losses.append(epoch_loss)
 
-def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer):
+    if checkpoint_path is not None:
+      save_checkpoint(transformer, losses, e, checkpoint_path)
+      
+  plot_loss('Transformer Loss', losses)
+
+def train_transformer_iteration(transformer, device, criterion, optim, ox_toks, tokenizer):
   '''
   Perform one iteration of training a transformer and return both the resulting embeddings and the loss of the transformer.
   Based on: https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
@@ -144,12 +156,12 @@ def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks
   # get preds shape to conform to tgt_expect
   output = output.permute(0,2,1)  # now [bs, vocab, seq]
 
-  g_loss = criterion(output, tgt_expect)
+  loss = criterion(output, tgt_expect)
 
-  g_optim.zero_grad()
-  g_loss.backward(retain_graph=True)
-  g_optim.step()
-  return other_embeddings, g_loss.item()
+  optim.zero_grad()
+  loss.backward(retain_graph=True)
+  optim.step()
+  return other_embeddings, loss.item()
 
 def train_discriminator(discriminator, other_embeddings, real_train, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
   criterion_binary = nn.BCEWithLogitsLoss()
