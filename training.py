@@ -12,7 +12,7 @@ PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
 from models import Decoder, Transformer, Translator, Discriminator
-from typing import List
+from typing import List, Optional
 from torch import nn
 import torch
 import numpy as np
@@ -50,14 +50,28 @@ def plot_loss(title: str, losses: List[float]) -> None:
   plt.plot(losses)
   plt.show()
 
-def train_decoder(real_decoder, real_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
-  criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-  r_optim = Adafactor(real_decoder.parameters())
-  n = len(real_train) // batch_size
-  r_losses = []
+def save_checkpoint(model: nn.Module, losses: List[float], epoch: int, checkpoint_path: str) -> None:
+  torch.save({
+    'state': model.state_dict(),
+    'losses': losses,
+    'epoch': epoch,
+  }, checkpoint_path + f'/ckpt-{model.__class__.__name__}-epoch-{epoch}.pt')
 
-  for e in range(epochs):
-    r_epoch_loss = 0
+def train_decoder(real_decoder, real_train, data_loader, tokenizer,
+                  device='cpu', epochs=10, batch_size=256,
+                  checkpoint=None, checkpoint_path: Optional[str]=None):
+  criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
+  optim = Adafactor(real_decoder.parameters())
+  n = len(real_train) // batch_size
+
+  if checkpoint is not None:
+    real_decoder.load_state_dict(checkpoint['state'])
+
+  losses = checkpoint['losses'] if checkpoint else []
+
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (r_x, _) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
@@ -65,51 +79,65 @@ def train_decoder(real_decoder, real_train, data_loader, tokenizer, device='cpu'
       rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
       rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
       
-      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
+      epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, optim)
     
-    r_losses.append(r_epoch_loss)
+    losses.append(epoch_loss)
+    if checkpoint_path is not None:
+      save_checkpoint(real_decoder, losses, e, checkpoint_path)
   
   # Show loss graph
-  plot_loss('Decoder Loss', r_losses)
+  plot_loss('Decoder Loss', losses)
 
-def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim):
+def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, optim):
   '''
   Perform one iteration of training a decoder and return the loss of the decoder.
   '''
   tgt_in = rx_toks[:, :-1]
   tgt_expect = rx_toks[:, 1:]
-  r_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
-  r_output = real_decoder(rx_clips, tgt_in, tgt_mask=r_mask)
-  r_output = r_output.permute(0,2,1)
-  r_loss = criterion(r_output, tgt_expect)
+  mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
+  output = real_decoder(rx_clips, tgt_in, tgt_mask=mask)
+  output = output.permute(0,2,1)
+  loss = criterion(output, tgt_expect)
 
-  r_optim.zero_grad()
-  r_loss.backward(retain_graph=True)
-  r_optim.step()
+  optim.zero_grad()
+  loss.backward(retain_graph=True)
+  optim.step()
 
-  return r_loss.item()
+  return loss.item()
 
 
-def train_transformer(transformer, other_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
+def train_transformer(transformer, other_train, data_loader, tokenizer,
+                      device='cpu', epochs=10, batch_size=256,
+                      checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-  g_optim = Adafactor(real_decoder.parameters())
-  n = len(other_train) // batch_size
-  g_losses = []
+  optim = Adafactor(transformer.parameters())
+  full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
+  
+  n = len(full_ox_toks) // batch_size
 
-  for e in range(epochs):
-    g_epoch_loss = 0
+  if checkpoint is not None:
+    transformer.load_state_dict(checkpoint['state'])
+  
+  losses = checkpoint['losses'] if checkpoint else []
+
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (_, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
       
       ox_toks = torch.tensor(np.array(list(map(lambda x: x[1].numpy(force=True), o_x))), device=device)
-      _, g_loss = train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer)
-      g_epoch_loss += g_loss
-    g_losses.append(g_epoch_loss)
-  
-  plot_loss('Transformer Loss', g_losses)
+      _, loss = train_transformer_iteration(transformer, device, criterion, optim, ox_toks, tokenizer)
+      epoch_loss += loss
+    losses.append(epoch_loss)
 
-def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks, tokenizer):
+    if checkpoint_path is not None:
+      save_checkpoint(transformer, losses, e, checkpoint_path)
+      
+  plot_loss('Transformer Loss', losses)
+
+def train_transformer_iteration(transformer, device, criterion, optim, ox_toks, tokenizer):
   '''
   Perform one iteration of training a transformer and return both the resulting embeddings and the loss of the transformer.
   Based on: https://jamesmccaffrey.wordpress.com/2022/09/09/simplest-transformer-seq-to-seq-example/
@@ -128,76 +156,98 @@ def train_transformer_iteration(transformer, device, criterion, g_optim, ox_toks
   # get preds shape to conform to tgt_expect
   output = output.permute(0,2,1)  # now [bs, vocab, seq]
 
-  g_loss = criterion(output, tgt_expect)
+  loss = criterion(output, tgt_expect)
 
-  g_optim.zero_grad()
-  g_loss.backward(retain_graph=True)
-  g_optim.step()
-  return other_embeddings, g_loss.item()
+  optim.zero_grad()
+  loss.backward(retain_graph=True)
+  optim.step()
+  return other_embeddings, loss.item()
 
-def train_discriminator(discriminator, other_embeddings, real_train, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
+def train_discriminator(discriminator, translate, other_embeddings, real_train, other_train, data_loader,
+                        device='cpu', epochs=10, batch_size=256,
+                        checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion_binary = nn.BCEWithLogitsLoss()
   d_optim = Adafactor(discriminator.parameters())
-  d_losses = []
+  if checkpoint is not None:
+    discriminator.load_state_dict(checkpoint['state'])
+  
+  losses = checkpoint['losses'] if checkpoint else []
 
   r_iterations = len(real_train) // batch_size
   o_iterations = len(other_train) // batch_size
   # r_iterations = real_train.shape[0] // batch_size
   # o_iterations = other_train.shape[0] // batch_size
+  full_rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
+  full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+  r_indices = np.random.permutation(len(full_rx_toks))
+  rx_clips = full_rx_clips[r_indices[i*batch_size:(i+1)*batch_size]]
 
   n = min(r_iterations, o_iterations)
-  for e in range(epochs):
-    d_epoch_loss = 0
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      _, _, _, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, r_x, o_x, other_embeddings)
-      d_epoch_loss += d_loss
+      _, _, _, loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
+      epoch_loss += loss
     
-    d_losses.append(d_epoch_loss)
+    losses.append(epoch_loss)
+    if checkpoint_path is not None:
+      save_checkpoint(discriminator, losses, e, checkpoint_path)
   
-  plot_loss('Discriminator Loss', d_losses)
+  plot_loss('Discriminator Loss', losses)
 
 
-def train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, r_x, o_x, other_embeddings):
-  rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
-  n_r = len(r_x)
-  n_o = len(o_x)
+def train_discriminator_iteration(discriminator, translate, device, criterion_binary, optim, batch_size, other_embeddings, rx_clips):
   fake_embs, F_embs = translate(other_embeddings[:,-1,:])
   real_embs = rx_clips[:,-1,:]
   inputs = torch.cat([real_embs, fake_embs])
-  reals = torch.ones(n_r, device=device) #whatever batch_sizes will be
-  fakes = torch.zeros(n_o, device=device) # ^^
+  reals = torch.ones(batch_size, device=device) #whatever batch_sizes will be
+  fakes = torch.zeros(batch_size, device=device) # ^^
   labels = torch.cat([reals,fakes]) #[n_1 + n_2,512]
 
-  d_outputs = discriminator(inputs) 
-  d_loss = criterion_binary(d_outputs, labels)
-  d_optim.zero_grad()
-  d_loss.backward(retain_graph=True)
-  d_optim.step()
-  return fake_embs,F_embs,fakes,d_loss.item()
+  outputs = discriminator(inputs) 
+  loss = criterion_binary(outputs, labels)
+  optim.zero_grad()
+  loss.backward(retain_graph=True)
+  optim.step()
+  return fake_embs,F_embs,reals,outputs,loss.item()
 
 
-def train_translator(translator, data_loader, other_embeddings, fake_embs, F_embs, fakes, epochs=10, batch_size=256):
+
+def train_translator(translate, discriminator, data_loader, other_embeddings, fake_embs, F_embs, fakes,
+                     real_train, other_train,
+                     device='cpu', epochs=10, batch_size=256,
+                     checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion_binary = nn.BCEWithLogitsLoss()
   mse = nn.MSELoss()
-  t_optim = Adafactor(translate.parameters())
-  t_losses = []
+  optim = Adafactor(translate.parameters())
+  if checkpoint is not None:
+    translate.load_state_dict(checkpoint['state'])
+  
+  losses = checkpoint['losses'] if checkpoint else []
 
-  r_iterations = len(real_train) // batch_size
-  o_iterations = len(other_train) // batch_size
+  full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+  full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
+  r_iterations = len(full_rx_toks) // batch_size
+  o_iterations = len(full_ox_toks) // batch_size
   # r_iterations = real_train.shape[0] // batch_size
   # o_iterations = other_train.shape[0] // batch_size
   n = min(r_iterations, o_iterations)
-  for e in range(epochs):
-    t_epoch_loss = 0
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
-    t_losses.append(t_epoch_loss)
+      epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, optim, other_embeddings, fake_embs, F_embs, fakes)
+    losses.append(epoch_loss)
+
+    if checkpoint_path is not None:
+      save_checkpoint(translate, losses, e, checkpoint_path)
   
-  plot_loss('Translator Loss', t_losses)
+  plot_loss('Translator Loss', losses)
 
 def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes):
   t_outputs = discriminator(fake_embs)
@@ -212,7 +262,8 @@ def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, ot
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
           tokenizer, real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
-          epochs = 10, batch_size = 256, checkpoint = None, ckpt_path = None, ckpt_interval = 10):
+          epochs = 10, batch_size = 256,
+          checkpoint = None, decoder_checkpoint = None, ckpt_path = None, ckpt_interval = 10):
   full_rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
   full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
   full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
@@ -235,15 +286,21 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
 
   n = min(r_iterations, o_iterations)
 
-  r_losses = []
-  g_losses = []
-  t_losses = []
-  d_losses = []
+  r_losses = checkpoint['real_decoder_losses'] if checkpoint else []
+  g_losses = checkpoint['transformer_losses'] if checkpoint else []
+  t_losses = checkpoint['translator_losses'] if checkpoint else []
+  d_losses = checkpoint['discriminator_losses'] if checkpoint else []
 
   if checkpoint is not None:
     real_decoder.load_state_dict(checkpoint['real_decoder_state'])
+    transformer.load_state_dict(checkpoint['transformer_state'])
+    discriminator.load_state_dict(checkpoint['discriminator_state'])
+    translate.load_state_dict(checkpoint['translate_state'])
+  elif decoder_checkpoint is not None:
+    real_decoder.load_state_dict(decoder_checkpoint['state'])
 
-  for e in range(epochs):
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
     r_epoch_loss = 0
     g_epoch_loss = 0
     d_epoch_loss = 0
@@ -271,8 +328,8 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn decoder
       # ==============================
-      # Don't train decoder if we are loading a checkpoint
-      if checkpoint is None:
+      # Don't train decoder if we are loading a decoder checkpoint
+      if decoder_checkpoint is None:
         r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
@@ -286,13 +343,13 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn discriminator
       # ==============================
-      fake_embs, F_embs, fakes, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, r_x, o_x, other_embeddings)
+      fake_embs, F_embs, reals, d_outputs, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
       d_epoch_loss += d_loss
 
       # ==============================
       # == learn translator
       # ==============================
-      t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
+      t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, reals)
 
 
     print(f'\ttrain loss (decoder)   : {r_epoch_loss}')
@@ -304,20 +361,29 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     g_losses.append(g_epoch_loss)
     d_losses.append(d_epoch_loss)
     t_losses.append(t_epoch_loss)
+    
+    #Report scores for discriminator
+    scores = torch.sigmoid(d_outputs)
+    real_score = scores[:batch_size].data.mean()
+    print('Probability Discriminator classifies English Embs: ', real_score)
+    fake_score =  scores[-(batch_size):].data.mean()
+    print('Probability Discriminator classifies Other Embs as English Embs: ', fake_score, "\n")
+    
     if ckpt_path is not None and e % ckpt_interval == 0:
       state = {
           'real_decoder_state': real_decoder.state_dict(),
-          'real_decoder_loss': r_epoch_loss,
+          'real_decoder_losses': r_losses,
           'transformer_state': transformer.state_dict(),
-          'transformer_loss': t_epoch_loss,
+          'transformer_losses': g_losses,
           'discriminator_state': discriminator.state_dict(),
-          'discriminator_loss': d_epoch_loss,
+          'discriminator_losses': d_losses,
           'translate_state': translate.state_dict(),
-          'translate_loss': t_epoch_loss,
+          'translate_losses': t_losses,
+          'epoch': e,
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
   
-  if checkpoint is None:
+  if decoder_checkpoint is not None:
     plot_loss('Decoder Loss', r_losses)
   
   plot_loss('Transformer Loss', g_losses)
