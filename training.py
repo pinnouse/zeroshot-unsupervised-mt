@@ -50,13 +50,16 @@ def plot_loss(title: str, losses: List[float]) -> None:
   plt.plot(losses)
   plt.show()
 
-def train_decoder(real_decoder, real_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
+def train_decoder(real_decoder, real_train, data_loader, tokenizer,
+                  device='cpu', epochs=10, batch_size=256,
+                  checkpoint=None, checkpoint_path=None):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   r_optim = Adafactor(real_decoder.parameters())
   n = len(real_train) // batch_size
-  r_losses = []
+  r_losses = checkpoint['losses'] if checkpoint else []
 
-  for e in range(epochs):
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
     r_epoch_loss = 0
     for i, (r_x, _) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
@@ -68,6 +71,12 @@ def train_decoder(real_decoder, real_train, data_loader, tokenizer, device='cpu'
       r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
     
     r_losses.append(r_epoch_loss)
+    if checkpoint_path is not None:
+      torch.save({
+        'state': real_decoder.state_dict(),
+        'losses': r_losses,
+        'epoch': e,
+      }, checkpoint_path + f'/ckpt-decoder-epoch-{e}.pt')
   
   # Show loss graph
   plot_loss('Decoder Loss', r_losses)
@@ -213,7 +222,8 @@ def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, ot
 
 def train(real_decoder, transformer, discriminator, translate, # our four models
           tokenizer, real_train, other_train, real_valid = None, other_valid = None, device = 'cpu',
-          epochs = 10, batch_size = 256, checkpoint = None, ckpt_path = None, ckpt_interval = 10):
+          epochs = 10, batch_size = 256,
+          checkpoint = None, decoder_checkpoint = None, ckpt_path = None, ckpt_interval = 10):
   full_rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
   full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
   full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
@@ -246,6 +256,8 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     transformer.load_state_dict(checkpoint['transformer_state'])
     discriminator.load_state_dict(checkpoint['discriminator_state'])
     translate.load_state_dict(checkpoint['translate_state'])
+  elif decoder_checkpoint is not None:
+    real_decoder.load_state_dict(decoder_checkpoint['state'])
 
   start = checkpoint['epoch'] if checkpoint else 0
   for e in range(start, epochs):
@@ -276,8 +288,9 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # ==============================
       # == learn decoder
       # ==============================
-      # Don't train decoder if we are loading a checkpoint
-      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
+      # Don't train decoder if we are loading a decoder checkpoint
+      if decoder_checkpoint is None:
+        r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
       # == self learn monolingual
@@ -322,7 +335,8 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
   
-  plot_loss('Decoder Loss', r_losses)
+  if decoder_checkpoint is not None:
+    plot_loss('Decoder Loss', r_losses)
   
   plot_loss('Transformer Loss', g_losses)
   plot_loss('Discriminator Loss', d_losses)
