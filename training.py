@@ -12,7 +12,7 @@ PyTorch training for GAN:
 [PyTorch blog](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 """
 from models import Decoder, Transformer, Translator, Discriminator
-from typing import List
+from typing import List, Optional
 from torch import nn
 import torch
 import numpy as np
@@ -50,12 +50,23 @@ def plot_loss(title: str, losses: List[float]) -> None:
   plt.plot(losses)
   plt.show()
 
+def save_checkpoint(model: nn.Module, losses: List[float], epoch: int, checkpoint_path: str) -> None:
+  torch.save({
+    'state': model.state_dict(),
+    'losses': losses,
+    'epoch': epoch,
+  }, checkpoint_path + f'/ckpt-{model.__class__.__name__}-epoch-{epoch}.pt')
+
 def train_decoder(real_decoder, real_train, data_loader, tokenizer,
                   device='cpu', epochs=10, batch_size=256,
-                  checkpoint=None, checkpoint_path=None):
+                  checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   optim = Adafactor(real_decoder.parameters())
   n = len(real_train) // batch_size
+
+  if checkpoint is not None:
+    real_decoder.load_state_dict(checkpoint['state'])
+
   losses = checkpoint['losses'] if checkpoint else []
 
   start = checkpoint['epoch'] if checkpoint else 0
@@ -72,11 +83,7 @@ def train_decoder(real_decoder, real_train, data_loader, tokenizer,
     
     losses.append(epoch_loss)
     if checkpoint_path is not None:
-      torch.save({
-        'state': real_decoder.state_dict(),
-        'losses': losses,
-        'epoch': e,
-      }, checkpoint_path + f'/ckpt-decoder-epoch-{e}.pt')
+      save_checkpoint(real_decoder, losses, e, checkpoint_path)
   
   # Show loss graph
   plot_loss('Decoder Loss', losses)
