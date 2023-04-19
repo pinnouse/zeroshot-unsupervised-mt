@@ -54,13 +54,13 @@ def train_decoder(real_decoder, real_train, data_loader, tokenizer,
                   device='cpu', epochs=10, batch_size=256,
                   checkpoint=None, checkpoint_path=None):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-  r_optim = Adafactor(real_decoder.parameters())
+  optim = Adafactor(real_decoder.parameters())
   n = len(real_train) // batch_size
-  r_losses = checkpoint['losses'] if checkpoint else []
+  losses = checkpoint['losses'] if checkpoint else []
 
   start = checkpoint['epoch'] if checkpoint else 0
   for e in range(start, epochs):
-    r_epoch_loss = 0
+    epoch_loss = 0
     for i, (r_x, _) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
@@ -68,35 +68,35 @@ def train_decoder(real_decoder, real_train, data_loader, tokenizer,
       rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
       rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
       
-      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
+      epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, optim)
     
-    r_losses.append(r_epoch_loss)
+    losses.append(epoch_loss)
     if checkpoint_path is not None:
       torch.save({
         'state': real_decoder.state_dict(),
-        'losses': r_losses,
+        'losses': losses,
         'epoch': e,
       }, checkpoint_path + f'/ckpt-decoder-epoch-{e}.pt')
   
   # Show loss graph
-  plot_loss('Decoder Loss', r_losses)
+  plot_loss('Decoder Loss', losses)
 
-def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim):
+def train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, optim):
   '''
   Perform one iteration of training a decoder and return the loss of the decoder.
   '''
   tgt_in = rx_toks[:, :-1]
   tgt_expect = rx_toks[:, 1:]
-  r_mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
-  r_output = real_decoder(rx_clips, tgt_in, tgt_mask=r_mask)
-  r_output = r_output.permute(0,2,1)
-  r_loss = criterion(r_output, tgt_expect)
+  mask = nn.Transformer.generate_square_subsequent_mask(context_length - 1, device=device)
+  output = real_decoder(rx_clips, tgt_in, tgt_mask=mask)
+  output = output.permute(0,2,1)
+  loss = criterion(output, tgt_expect)
 
-  r_optim.zero_grad()
-  r_loss.backward(retain_graph=True)
-  r_optim.step()
+  optim.zero_grad()
+  loss.backward(retain_graph=True)
+  optim.step()
 
-  return r_loss.item()
+  return loss.item()
 
 
 def train_transformer(transformer, other_train, data_loader, tokenizer, device='cpu', epochs=10, batch_size=256):
