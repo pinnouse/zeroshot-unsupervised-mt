@@ -163,10 +163,15 @@ def train_transformer_iteration(transformer, device, criterion, optim, ox_toks, 
   optim.step()
   return other_embeddings, loss.item()
 
-def train_discriminator(discriminator, other_embeddings, real_train, other_train, data_loader, device='cpu', epochs=10, batch_size=256):
+def train_discriminator(discriminator, translate, other_embeddings, real_train, other_train, data_loader,
+                        device='cpu', epochs=10, batch_size=256,
+                        checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion_binary = nn.BCEWithLogitsLoss()
   d_optim = Adafactor(discriminator.parameters())
-  d_losses = []
+  if checkpoint is not None:
+    discriminator.load_state_dict(checkpoint['state'])
+  
+  losses = checkpoint['losses'] if checkpoint else []
 
   r_iterations = len(real_train) // batch_size
   o_iterations = len(other_train) // batch_size
@@ -178,20 +183,23 @@ def train_discriminator(discriminator, other_embeddings, real_train, other_train
   rx_clips = full_rx_clips[r_indices[i*batch_size:(i+1)*batch_size]]
 
   n = min(r_iterations, o_iterations)
-  for e in range(epochs):
-    d_epoch_loss = 0
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      _, _, _, d_loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
-      d_epoch_loss += d_loss
+      _, _, _, loss = train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips)
+      epoch_loss += loss
     
-    d_losses.append(d_epoch_loss)
+    losses.append(epoch_loss)
+    if checkpoint_path is not None:
+      save_checkpoint(discriminator, losses, e, checkpoint_path)
   
-  plot_loss('Discriminator Loss', d_losses)
+  plot_loss('Discriminator Loss', losses)
 
 
-def train_discriminator_iteration(discriminator, translate, device, criterion_binary, d_optim, batch_size, other_embeddings, rx_clips):
+def train_discriminator_iteration(discriminator, translate, device, criterion_binary, optim, batch_size, other_embeddings, rx_clips):
   fake_embs, F_embs = translate(other_embeddings[:,-1,:])
   real_embs = rx_clips[:,-1,:]
   inputs = torch.cat([real_embs, fake_embs])
@@ -199,12 +207,12 @@ def train_discriminator_iteration(discriminator, translate, device, criterion_bi
   fakes = torch.zeros(batch_size, device=device) # ^^
   labels = torch.cat([reals,fakes]) #[n_1 + n_2,512]
 
-  d_outputs = discriminator(inputs) 
-  d_loss = criterion_binary(d_outputs, labels)
-  d_optim.zero_grad()
-  d_loss.backward(retain_graph=True)
-  d_optim.step()
-  return fake_embs,F_embs,fakes,d_loss.item()
+  outputs = discriminator(inputs) 
+  loss = criterion_binary(outputs, labels)
+  optim.zero_grad()
+  loss.backward(retain_graph=True)
+  optim.step()
+  return fake_embs,F_embs,fakes,loss.item()
 
 
 def train_translator(translator, data_loader, other_embeddings, fake_embs, F_embs, fakes, epochs=10, batch_size=256):
