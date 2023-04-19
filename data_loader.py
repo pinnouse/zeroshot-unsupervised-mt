@@ -242,7 +242,7 @@ def data_loader(language):
           if language == 'en':
               sentences = []
               for s in range(len(tokenized)):
-                sentences.append(tokenizer.decode(tokenized[1:s], skip_special_tokens=True))
+                sentences.append(tokenizer.decode(tokenized[:s+1], skip_special_tokens=True))
               #[bs x 64 x 512]
               clips = text_model.encode(sentences)
       
