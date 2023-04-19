@@ -236,15 +236,19 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
 
   n = min(r_iterations, o_iterations)
 
-  r_losses = []
-  g_losses = []
-  t_losses = []
-  d_losses = []
+  r_losses = checkpoint['real_decoder_losses'] if checkpoint else []
+  g_losses = checkpoint['transformer_losses'] if checkpoint else []
+  t_losses = checkpoint['translator_losses'] if checkpoint else []
+  d_losses = checkpoint['discriminator_losses'] if checkpoint else []
 
   if checkpoint is not None:
     real_decoder.load_state_dict(checkpoint['real_decoder_state'])
+    transformer.load_state_dict(checkpoint['transformer_state'])
+    discriminator.load_state_dict(checkpoint['discriminator_state'])
+    translate.load_state_dict(checkpoint['translate_state'])
 
-  for e in range(epochs):
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
     r_epoch_loss = 0
     g_epoch_loss = 0
     d_epoch_loss = 0
@@ -273,8 +277,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       # == learn decoder
       # ==============================
       # Don't train decoder if we are loading a checkpoint
-      if checkpoint is None:
-        r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
+      r_epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, r_optim)
 
       # ==============================
       # == self learn monolingual
@@ -308,18 +311,18 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     if ckpt_path is not None and e % ckpt_interval == 0:
       state = {
           'real_decoder_state': real_decoder.state_dict(),
-          'real_decoder_loss': r_epoch_loss,
+          'real_decoder_losses': r_losses,
           'transformer_state': transformer.state_dict(),
-          'transformer_loss': t_epoch_loss,
+          'transformer_losses': g_losses,
           'discriminator_state': discriminator.state_dict(),
-          'discriminator_loss': d_epoch_loss,
+          'discriminator_losses': d_losses,
           'translate_state': translate.state_dict(),
-          'translate_loss': t_epoch_loss,
+          'translate_losses': t_losses,
+          'epoch': e,
       }
       torch.save(state, ckpt_path + f'/ckpt-epoch-{e}.pt')
   
-  if checkpoint is None:
-    plot_loss('Decoder Loss', r_losses)
+  plot_loss('Decoder Loss', r_losses)
   
   plot_loss('Transformer Loss', g_losses)
   plot_loss('Discriminator Loss', d_losses)
