@@ -215,26 +215,38 @@ def train_discriminator_iteration(discriminator, translate, device, criterion_bi
   return fake_embs,F_embs,fakes,loss.item()
 
 
-def train_translator(translator, data_loader, other_embeddings, fake_embs, F_embs, fakes, epochs=10, batch_size=256):
+def train_translator(translate, discriminator, data_loader, other_embeddings, fake_embs, F_embs, fakes,
+                     real_train, other_train,
+                     device='cpu', epochs=10, batch_size=256,
+                     checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion_binary = nn.BCEWithLogitsLoss()
   mse = nn.MSELoss()
-  t_optim = Adafactor(translate.parameters())
-  t_losses = []
+  optim = Adafactor(translate.parameters())
+  if checkpoint is not None:
+    translate.load_state_dict(checkpoint['state'])
+  
+  losses = checkpoint['losses'] if checkpoint else []
 
-  r_iterations = len(real_train) // batch_size
-  o_iterations = len(other_train) // batch_size
+  full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+  full_ox_toks = torch.tensor(np.array(other_train['tokens']), device=device)
+  r_iterations = len(full_rx_toks) // batch_size
+  o_iterations = len(full_ox_toks) // batch_size
   # r_iterations = real_train.shape[0] // batch_size
   # o_iterations = other_train.shape[0] // batch_size
   n = min(r_iterations, o_iterations)
-  for e in range(epochs):
-    t_epoch_loss = 0
+  start = checkpoint['epoch'] if checkpoint else 0
+  for e in range(start, epochs):
+    epoch_loss = 0
     for i, (r_x, o_x) in enumerate(data_loader):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
-      t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes)
-    t_losses.append(t_epoch_loss)
+      epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, optim, other_embeddings, fake_embs, F_embs, fakes)
+    losses.append(epoch_loss)
+
+    if checkpoint_path is not None:
+      save_checkpoint(translate, losses, e, checkpoint_path)
   
-  plot_loss('Translator Loss', t_losses)
+  plot_loss('Translator Loss', losses)
 
 def train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, fakes):
   t_outputs = discriminator(fake_embs)
