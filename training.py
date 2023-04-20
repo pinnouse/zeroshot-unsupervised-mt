@@ -75,6 +75,7 @@ def train_decoder(real_decoder, real_train, tokenizer,
   for e in range(start, epochs):
     epoch_loss = 0
     r_indices = np.random.permutation(len(full_rx_toks))
+    print(f'Epoch {e+1}:')
     for i in range(n):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
