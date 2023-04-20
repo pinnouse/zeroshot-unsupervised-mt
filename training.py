@@ -62,10 +62,10 @@ def train_decoder(real_decoder, real_train, tokenizer,
                   checkpoint=None, checkpoint_path: Optional[str]=None, ckpt_interval=5):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   optim = Adafactor(real_decoder.parameters())
-  n = len(real_train) // batch_size
-
+  
   full_rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
   full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+  n = len(full_rx_toks) // batch_size
 
   if checkpoint is not None:
     real_decoder.load_state_dict(checkpoint['state'])
