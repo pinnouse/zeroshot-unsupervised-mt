@@ -59,7 +59,7 @@ def save_checkpoint(model: nn.Module, losses: List[float], epoch: int, checkpoin
 
 def train_decoder(real_decoder, real_train, tokenizer,
                   device='cpu', epochs=10, batch_size=256,
-                  checkpoint=None, checkpoint_path: Optional[str]=None):
+                  checkpoint=None, checkpoint_path: Optional[str]=None, ckpt_interval=5):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   optim = Adafactor(real_decoder.parameters())
   n = len(real_train) // batch_size
@@ -85,7 +85,7 @@ def train_decoder(real_decoder, real_train, tokenizer,
       epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, optim)
     
     losses.append(epoch_loss)
-    if checkpoint_path is not None:
+    if checkpoint_path is not None and (e + 1) % ckpt_interval == 0:
       save_checkpoint(real_decoder, losses, e, checkpoint_path)
   
   # Show loss graph
