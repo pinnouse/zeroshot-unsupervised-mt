@@ -352,15 +352,15 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
       t_epoch_loss += train_translator_iteration(discriminator, criterion_binary, mse, t_optim, other_embeddings, fake_embs, F_embs, reals)
 
 
-    print(f'\ttrain loss (decoder)   : {r_epoch_loss}')
-    print(f'\ttrain loss (generator) : {g_epoch_loss}')
-    print(f'\ttrain loss (discrim)   : {d_epoch_loss}')
-    print(f'\ttrain loss (translator): {t_epoch_loss}')
+    print(f'\ttrain loss (decoder)   : {r_epoch_loss / n}')
+    print(f'\ttrain loss (generator) : {g_epoch_loss / n}')
+    print(f'\ttrain loss (discrim)   : {d_epoch_loss / n}')
+    print(f'\ttrain loss (translator): {t_epoch_loss / n}')
     print(f'\ttook: {(datetime.now() - epoch_start).total_seconds()} seconds')
-    r_losses.append(r_epoch_loss)
-    g_losses.append(g_epoch_loss)
-    d_losses.append(d_epoch_loss)
-    t_losses.append(t_epoch_loss)
+    r_losses.append(r_epoch_loss / n)
+    g_losses.append(g_epoch_loss / n)
+    d_losses.append(d_epoch_loss / n)
+    t_losses.append(t_epoch_loss / n)
     
     #Report scores for discriminator
     scores = torch.sigmoid(d_outputs)
