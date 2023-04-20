@@ -104,10 +104,7 @@ def batch_loader(dataset, batch_size, shuffle=True):
 #   break
 
 import torch
-import torchtext
-import clip
-import numpy as np
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import SentenceTransformer
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # model, preprocess = clip.load("ViT-B/32", device=device)
