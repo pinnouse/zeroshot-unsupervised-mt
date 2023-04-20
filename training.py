@@ -57,27 +57,30 @@ def save_checkpoint(model: nn.Module, losses: List[float], epoch: int, checkpoin
     'epoch': epoch,
   }, checkpoint_path + f'/ckpt-{model.__class__.__name__}-epoch-{epoch}.pt')
 
-def train_decoder(real_decoder, real_train, data_loader, tokenizer,
+def train_decoder(real_decoder, real_train, tokenizer,
                   device='cpu', epochs=10, batch_size=256,
                   checkpoint=None, checkpoint_path: Optional[str]=None):
   criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
   optim = Adafactor(real_decoder.parameters())
   n = len(real_train) // batch_size
 
+  full_rx_clips = torch.tensor(np.array(real_train['clips']), device=device)
+  full_rx_toks = torch.tensor(np.array(real_train['tokens']), device=device)
+
   if checkpoint is not None:
     real_decoder.load_state_dict(checkpoint['state'])
 
   losses = checkpoint['losses'] if checkpoint else []
-
   start = checkpoint['epoch'] if checkpoint else 0
   for e in range(start, epochs):
     epoch_loss = 0
-    for i, (r_x, _) in enumerate(data_loader):
+    r_indices = np.random.permutation(len(full_rx_toks))
+    for i in range(n):
       if (i + 1) % 100 == 0:
         print(f'Iteration {i+1} of {n}')
       
-      rx_clips = torch.tensor(np.array(list(map(lambda x: x[1], r_x))), device=device)
-      rx_toks = torch.tensor(np.array(list(map(lambda x: x[2].numpy(force=True), r_x))), device=device)
+      rx_clips = full_rx_clips[r_indices[i*batch_size:(i+1)*batch_size]]
+      rx_toks = full_rx_toks[r_indices[i*batch_size:(i+1)*batch_size]]
       
       epoch_loss += train_decoder_iteration(real_decoder, device, criterion, rx_clips, rx_toks, optim)
     
