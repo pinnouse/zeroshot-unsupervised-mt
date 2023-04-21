@@ -292,7 +292,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
 
   r_losses = checkpoint['real_decoder_losses'] if checkpoint else []
   g_losses = checkpoint['transformer_losses'] if checkpoint else []
-  t_losses = checkpoint['translator_losses'] if checkpoint else []
+  t_losses = checkpoint['translate_losses'] if checkpoint else []
   d_losses = checkpoint['discriminator_losses'] if checkpoint else []
 
   if checkpoint is not None:
