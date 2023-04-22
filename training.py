@@ -373,7 +373,7 @@ def train(real_decoder, transformer, discriminator, translate, # our four models
     fake_score =  scores[-(batch_size):].data.mean()
     print('Probability Discriminator classifies Other Embs as English Embs: ', fake_score, "\n")
     
-    if ckpt_path is not None and e % ckpt_interval == 0:
+    if ckpt_path is not None and (e % ckpt_interval == 0 or e == epochs - 1):
       state = {
           'real_decoder_state': real_decoder.state_dict(),
           'real_decoder_losses': r_losses,
